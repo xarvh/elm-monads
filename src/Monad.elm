@@ -5,19 +5,26 @@ import Run
 ------------------------------------------------------------------------------
 
 type Monad a
-    = M a
+    = Success a
+    | Error String
 
 monadConstant : a -> Monad a
 monadConstant a =
-    M a
+    Success a
 
 monadAndThen : (a -> Monad b) -> Monad a -> Monad b
-monadAndThen f (M a) =
-    f a
+monadAndThen f ma =
+    case ma of
+        Success a -> f a
+        Error s -> Error s
+
+------------------------------------------------------------------------------
 
 monadShow : Monad Value -> String
-monadShow (M a) =
-    showValue a
+monadShow ma =
+    case ma of
+        Success a -> showValue a
+        Error s -> "Error: " ++ s
 
 ------------------------------------------------------------------------------
 
@@ -79,7 +86,7 @@ lookup : Environment -> VariableName -> Monad Value
 lookup environment variableName =
     case environment of
         [] ->
-            monadConstant Wrong
+            Error ("Undefined variable `" ++ variableName ++ "`")
 
         (name, value) :: xs ->
             if name == variableName then monadConstant value else lookup xs variableName
@@ -89,13 +96,13 @@ add a b =
     case (a, b) of
         (Number aa, Number bb) -> monadConstant <| Number (aa + bb)
         -- TODO: add function addition =D
-        _ -> monadConstant Wrong
+        _ -> Error ("both should be numbers: " ++ showValue a ++ " " ++ showValue b)
 
 apply : Value -> Value -> Monad Value
 apply a b =
     case a of
         Function f -> f b
-        _ -> monadConstant Wrong
+        _ -> Error ("trying to call: `" ++ showValue a ++ "` but it is not a function =(")
 
 
 test : Term -> String
@@ -123,7 +130,13 @@ test0 =
             )
         )
 
+test1 =
+    test
+        (FunctionCall
+            (Constant 1)
+            (Constant 2)
+        )
 
 -- would be nice to have a parser
 main =
-    Run.once (\flags -> test0)
+    Run.once (\flags -> test1)
